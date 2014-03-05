@@ -78,7 +78,7 @@ def createSub( traindata, labels, testdata):
                              C=1.0, fit_intercept=True, intercept_scaling=1.0, 
                              class_weight=None, random_state=None)
  #http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
-  clf2 = ens.GradientBoostingRegressor(loss='quantile', alpha=0.95,
+  clf2 = ens.GradientBoostingRegressor(loss='quantile', alpha=0.5,
                               n_estimators=250, max_depth=3,
                               learning_rate=.1, min_samples_leaf=9,
                               min_samples_split=9)
