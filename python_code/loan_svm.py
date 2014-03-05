@@ -10,22 +10,49 @@ import numpy as np
 import cPickle
 from sklearn import preprocessing
 from sklearn.svm import LinearSVC
+from sklearn.metrics import mean_absolute_error
 import scipy.stats as stats
 import sklearn.linear_model as lm
 import sklearn.ensemble as ens
 from sys import argv
 
 def main():
-  X, labels = traindata(argv[1])
-  X_test    = testdata(argv[2])
+
+  train_file      = argv[1]
+  test_file       = argv[2]
+  output_filename = argv[3].replace(".csv", "")
+  regression_type = argv[4]
+
+  # train_file      = "../cleaned_data/cleaned_train.csv"
+  # test_file       = "../cleaned_data/cleaned_test.csv"
+  # regression_type = 'logistic'
+  # output_filename = "out.csv".replace(".csv","")
+
+  X, labels = traindata(train_file)
+  X_test    = testdata(test_file)
 
   X         = preprocessing.scale(X)
   X_test    = preprocessing.scale(X_test)
 
-  output_filename=argv[3].replace(".csv","")
 
+  permuted_index = np.random.permutation(X.shape[0])
+
+  mae = 0
+  for val_index in np.array_split(permuted_index, 5):
+    train_index = np.delete(permuted_index, val_index)
+
+    train_data  = X[train_index,]
+    train_label = labels[train_index,]
+
+    val_data    = X[val_index,]
+    val_label   = labels[val_index,]
+
+    _, pred_on_val = trainer(train_data, train_label, val_data, regression_type)
+    mae = mae + mean_absolute_error(val_label, pred_on_val)
+
+  print mae/5
+  return
   predsorig_train, predsorig_test = trainer(X, labels, X_test)
-
   createSub(predsorig_train, predsorig_test, output_filename)
 
 def testdata(filename):
@@ -33,9 +60,9 @@ def testdata(filename):
 
   X = np.asarray(X.values, dtype = float)
 
-# col_mean = stats.nanmean(X,axis=0)
-# inds = np.where(np.isnan(X))
-# X[inds]=np.take(col_mean,inds[1])
+  # col_mean = stats.nanmean(X,axis=0)
+  # inds = np.where(np.isnan(X))
+  # X[inds]=np.take(col_mean,inds[1])
   data = np.asarray(X[:,1:-3], dtype = float)
 
   return data
@@ -45,15 +72,15 @@ def traindata(filename):
 
   X = np.asarray(X.values, dtype = float)
 
-# col_mean = stats.nanmean(X,axis=0)
-# inds = np.where(np.isnan(X))
-# X[inds]=np.take(col_mean,inds[1])
+  # col_mean = stats.nanmean(X,axis=0)
+  # inds = np.where(np.isnan(X))
+  # X[inds]=np.take(col_mean,inds[1])
 
   labels = np.asarray(X[:,-1], dtype = float)
   data = np.asarray(X[:,1:-4], dtype = float)
   return data, labels
 
-def trainer(traindata, lables, testdata):
+def trainer(traindata, labels, testdata, regression_type):
   labels = np.asarray(map(int,labels))
 
   xtrain = traindata#[train]
@@ -76,17 +103,17 @@ def trainer(traindata, lables, testdata):
   clf = lm.LogisticRegression(penalty='l2', dual=True, tol=0.0001,
                              C=1.0, fit_intercept=True, intercept_scaling=1.0,
                              class_weight=None, random_state=None)
- #http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
+  #http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
   clf2 = ens.GradientBoostingRegressor(loss='quantile', alpha=0.5,
                               n_estimators=250, max_depth=3,
                               learning_rate=.1, min_samples_leaf=9,
                               min_samples_split=9)
- #http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html
+  #http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html
 
- #=Regression 1================================
+  #=Regression 1================================
   clf.fit(xtrainP,ytrainP)
   predsP = clf.predict(xtestP)
- #=============================================
+  #=============================================
   nztrain = np.where(ytrainP > 0)[0]
   nztest = np.where(predsP == 1)[0]
 
@@ -99,8 +126,7 @@ def trainer(traindata, lables, testdata):
   ytrain0 = ytrain[nztrain0]
   ytrain1 = ytrain[nztrain]
 
-  regression_type=argv[4]
-#=Regression 2================================
+  #=Regression 2================================
   if regression_type=="logistic":
       print "logistic regression"
       clf.fit(xtrainP,ytrain1)
@@ -108,7 +134,7 @@ def trainer(traindata, lables, testdata):
       preds_test = clf.predict(xtestP)
       predsorig_train[nztrain]= preds_train
       predsorig_test[nztest] = preds_test
-#=============================================
+  #=============================================
   elif regression_type=="quantile":
       print "quantile regression"
       clf2.fit(xtrainP,ytrain1)
@@ -116,7 +142,7 @@ def trainer(traindata, lables, testdata):
       preds_test= clf2.predict(xtestP)
       predsorig_train[nztrain] = np.asarray(map(int,preds_train))
       predsorig_test[nztest] = np.asarray(map(int,preds_test))
-#=============================================
+  #=============================================
   else:
       print "error: wrong regression type"
       return
@@ -133,7 +159,8 @@ def createSub(predsorig_train, predsorig_test, output_filename):
   np.savetxt("%s_test.csv"%(output_filename),predsorig_test ,delimiter = ',', fmt = '%d')
 
 if __name__ == '__main__':
-    if len(argv) < 5:
-        print "loan_quantile.py <filename train> <filename test> <filename result> <regression_type>"
-    else:
-        main()
+  # if len(argv) < 5:
+  #     print "loan_quantile.py <filename train> <filename test> <filename result> <regression_type>"
+  # else:
+  #     main()
+  main()
