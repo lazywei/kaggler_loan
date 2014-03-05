@@ -15,13 +15,14 @@ import scipy.stats as stats
 import sklearn.linear_model as lm
 import sklearn.ensemble as ens
 from sys import argv
+import argparse
 
-def main():
-
-  train_file      = argv[1]
-  test_file       = argv[2]
-  output_filename = argv[3].replace(".csv", "")
-  regression_type = argv[4]
+def main(args):
+  train_file      = args.train_file
+  test_file       = args.test_file
+  output_filename = args.output_file.replace(".csv", "")
+  regression_type = args.regression_type
+  cv_mode         = args.cv_mode
 
   # train_file      = "../cleaned_data/cleaned_train.csv"
   # test_file       = "../cleaned_data/cleaned_test.csv"
@@ -34,26 +35,26 @@ def main():
   X         = preprocessing.scale(X)
   X_test    = preprocessing.scale(X_test)
 
-
   permuted_index = np.random.permutation(X.shape[0])
 
-  mae = 0
-  for val_index in np.array_split(permuted_index, 5):
-    train_index = np.delete(permuted_index, val_index)
+  if cv_mode:
+    mae = 0
+    for val_index in np.array_split(permuted_index, 5):
+      train_index = np.delete(permuted_index, val_index)
 
-    train_data  = X[train_index,]
-    train_label = labels[train_index,]
+      train_data  = X[train_index,]
+      train_label = labels[train_index,]
 
-    val_data    = X[val_index,]
-    val_label   = labels[val_index,]
+      val_data    = X[val_index,]
+      val_label   = labels[val_index,]
 
-    _, pred_on_val = trainer(train_data, train_label, val_data, regression_type)
-    mae = mae + mean_absolute_error(val_label, pred_on_val)
+      _, pred_on_val = trainer(train_data, train_label, val_data, regression_type)
+      mae = mae + mean_absolute_error(val_label, pred_on_val)
 
-  print mae/5
-  return
-  predsorig_train, predsorig_test = trainer(X, labels, X_test)
-  createSub(predsorig_train, predsorig_test, output_filename)
+    print mae/5
+  else:
+    predsorig_train, predsorig_test = trainer(X, labels, X_test)
+    createSub(predsorig_train, predsorig_test, output_filename)
 
 def testdata(filename):
   X = pd.read_table(filename, sep=',', warn_bad_lines=True, error_bad_lines=True)
@@ -159,8 +160,14 @@ def createSub(predsorig_train, predsorig_test, output_filename):
   np.savetxt("%s_test.csv"%(output_filename),predsorig_test ,delimiter = ',', fmt = '%d')
 
 if __name__ == '__main__':
-  # if len(argv) < 5:
-  #     print "loan_quantile.py <filename train> <filename test> <filename result> <regression_type>"
-  # else:
-  #     main()
-  main()
+  parser = argparse.ArgumentParser(description='Predict loan default by logistic/quantile regression.')
+  parser.add_argument('train_file', metavar='train_file', type=str, help='train file path')
+  parser.add_argument('test_file', metavar='test_file', type=str, help='test file path')
+  parser.add_argument('output_file', metavar='output_file', type=str, help='output file path')
+  parser.add_argument('regression_type', metavar='regression_type', type=str, choices=['logistic', 'quantile'])
+  parser.add_argument('--cv', dest='cv_mode', help='use CV mode (no prediction on test data will be made)', action='store_true')
+  parser.add_argument('--no-cv', dest='cv_mode', help='use CV mode (no prediction on test data will be made)', action='store_false')
+  parser.set_defaults(cv_mode=False)
+  args = parser.parse_args()
+
+  main(args)
