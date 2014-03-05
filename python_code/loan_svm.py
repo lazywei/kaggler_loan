@@ -14,7 +14,6 @@ from sklearn.metrics import mean_absolute_error
 import scipy.stats as stats
 import sklearn.linear_model as lm
 import sklearn.ensemble as ens
-from sys import argv
 import argparse
 
 def main(args):
@@ -50,11 +49,11 @@ def main(args):
 
       _, pred_on_val = trainer(train_data, train_label, val_data, regression_type)
       mae = mae + mean_absolute_error(val_label, pred_on_val)
-
-    print mae/5
+    print "MAE:" + str(mae/5)
   else:
-    predsorig_train, predsorig_test = trainer(X, labels, X_test)
-    createSub(predsorig_train, predsorig_test, output_filename)
+    print "In sample MAE:" + str(mean_absolute_error(pred_on_train, labels))
+    pred_on_train, pred_on_test = trainer(X, labels, X_test)
+    createSub(pred_on_train, pred_on_test, output_filename)
 
 def testdata(filename):
   X = pd.read_table(filename, sep=',', warn_bad_lines=True, error_bad_lines=True)
