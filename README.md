@@ -4,6 +4,7 @@ Kaggler Loan
 ## Algorithm
 
 1. `alg_1`: Use K-means for clustering and data imputation. Use python's quantile regression for training.
+2. `alg_2`: Use features selected by Dboy. Use SVM for classification and regression.
 
 ## Convention
 
