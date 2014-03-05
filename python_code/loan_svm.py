@@ -10,53 +10,52 @@ import numpy as np
 import cPickle
 from sklearn import preprocessing
 from sklearn.svm import LinearSVC
-import  scipy.stats as stats
+import scipy.stats as stats
 import sklearn.linear_model as lm
-import sklearn.ensemble as ens 
+import sklearn.ensemble as ens
 from sys import argv
 
 def main():
+  X, labels = traindata(argv[1])
+  X_test    = testdata(argv[2])
 
- X, labels = traindata(argv[1])
- X_test = testdata(argv[2])
+  X         = preprocessing.scale(X)
+  X_test    = preprocessing.scale(X_test)
 
- 
- X = preprocessing.scale(X) 
- X_test = preprocessing.scale(X_test)
+  output_filename=argv[3].replace(".csv","")
 
- createSub( X, labels, X_test)
+  predsorig_train, predsorig_test = trainer(X, labels, X_test)
 
+  createSub(predsorig_train, predsorig_test, output_filename)
 
 def testdata(filename):
- X = pd.read_table(filename, sep=',', warn_bad_lines=True, error_bad_lines=True)
+  X = pd.read_table(filename, sep=',', warn_bad_lines=True, error_bad_lines=True)
 
- X = np.asarray(X.values, dtype = float)
+  X = np.asarray(X.values, dtype = float)
 
 # col_mean = stats.nanmean(X,axis=0)
 # inds = np.where(np.isnan(X))
 # X[inds]=np.take(col_mean,inds[1])
- data = np.asarray(X[:,1:-3], dtype = float)
+  data = np.asarray(X[:,1:-3], dtype = float)
 
- return data
- 
+  return data
+
 def traindata(filename):
- X = pd.read_table(filename, sep=',', warn_bad_lines=True, error_bad_lines=True)
+  X = pd.read_table(filename, sep=',', warn_bad_lines=True, error_bad_lines=True)
 
- X = np.asarray(X.values, dtype = float)
+  X = np.asarray(X.values, dtype = float)
 
 # col_mean = stats.nanmean(X,axis=0)
 # inds = np.where(np.isnan(X))
 # X[inds]=np.take(col_mean,inds[1])
 
- labels = np.asarray(X[:,-1], dtype = float)
- data = np.asarray(X[:,1:-4], dtype = float)
- return data, labels
+  labels = np.asarray(X[:,-1], dtype = float)
+  data = np.asarray(X[:,1:-4], dtype = float)
+  return data, labels
 
-
-def createSub( traindata, labels, testdata):
- 
+def trainer(traindata, lables, testdata):
   labels = np.asarray(map(int,labels))
- 
+
   xtrain = traindata#[train]
   xtest = testdata#[test]
 
@@ -70,12 +69,12 @@ def createSub( traindata, labels, testdata):
   #http://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html
   lsvc = LinearSVC(C=0.01, penalty="l1", dual=False, verbose = 2)
   lsvc.fit(xtrain, ytrainP)
-    
+
   xtrainP = lsvc.transform(xtrain)
   xtestP =  lsvc.transform(xtest)
 
-  clf = lm.LogisticRegression(penalty='l2', dual=True, tol=0.0001, 
-                             C=1.0, fit_intercept=True, intercept_scaling=1.0, 
+  clf = lm.LogisticRegression(penalty='l2', dual=True, tol=0.0001,
+                             C=1.0, fit_intercept=True, intercept_scaling=1.0,
                              class_weight=None, random_state=None)
  #http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
   clf2 = ens.GradientBoostingRegressor(loss='quantile', alpha=0.5,
@@ -126,7 +125,10 @@ def createSub( traindata, labels, testdata):
   #predsorig[nztest0] = 0
   #print np.sum(predsorig)
 
-  output_filename=argv[3].replace(".csv","")
+  return predsorig_train, predsorig_test
+
+
+def createSub(predsorig_train, predsorig_test, output_filename):
   np.savetxt("%s_train.csv"%(output_filename),predsorig_train ,delimiter = ',', fmt = '%d')
   np.savetxt("%s_test.csv"%(output_filename),predsorig_test ,delimiter = ',', fmt = '%d')
 
