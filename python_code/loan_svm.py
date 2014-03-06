@@ -22,6 +22,8 @@ def main(args):
   output_filename = args.output_file.replace(".csv", "")
   regression_type = args.regression_type
   cv_mode         = args.cv_mode
+  logregC         = args.logregC
+  lsvcC           = args.lsvcC
 
   # train_file      = "../cleaned_data/cleaned_train.csv"
   # test_file       = "../cleaned_data/cleaned_test.csv"
@@ -34,11 +36,11 @@ def main(args):
   X         = preprocessing.scale(X)
   X_test    = preprocessing.scale(X_test)
 
-  permuted_index = np.random.permutation(X.shape[0])
-
   if cv_mode:
+    permuted_index = np.random.permutation(X.shape[0])
+
     mae = 0
-    for val_index in np.array_split(permuted_index, 5):
+    for val_index in np.array_split(permuted_index, 3):
       train_index = np.delete(permuted_index, val_index)
 
       train_data  = X[train_index,]
@@ -47,12 +49,12 @@ def main(args):
       val_data    = X[val_index,]
       val_label   = labels[val_index,]
 
-      _, pred_on_val = trainer(train_data, train_label, val_data, regression_type)
+      _, pred_on_val = trainer(train_data, train_label, val_data, regression_type, lsvcC, logregC)
       mae = mae + mean_absolute_error(val_label, pred_on_val)
     print "MAE:" + str(mae/5)
   else:
+    pred_on_train, pred_on_test = trainer(X, labels, X_test, regression_type, lsvcC, logregC)
     print "In sample MAE:" + str(mean_absolute_error(pred_on_train, labels))
-    pred_on_train, pred_on_test = trainer(X, labels, X_test)
     createSub(pred_on_train, pred_on_test, output_filename)
 
 def testdata(filename):
@@ -80,28 +82,28 @@ def traindata(filename):
   data = np.asarray(X[:,1:-4], dtype = float)
   return data, labels
 
-def trainer(traindata, labels, testdata, regression_type):
+def trainer(traindata, labels, testdata, regression_type, lsvcC=0.01, logregC=1.0):
   labels = np.asarray(map(int,labels))
 
   xtrain = traindata#[train]
-  xtest = testdata#[test]
-
+  xtest  = testdata#[test]
   ytrain = labels#[train]
-  predsorig_train = np.asarray([0] *traindata.shape[0]) #np.copy(ytest)
-  predsorig_test = np.asarray([0] * testdata.shape[0]) #np.copy(ytest)
 
-  labelsP =np.asarray(map(lambda x: 1 if x > 0 else 0,labels))
+  predsorig_train = np.asarray([0] *traindata.shape[0]) #np.copy(ytest)
+  predsorig_test  = np.asarray([0] * testdata.shape[0]) #np.copy(ytest)
+
+  labelsP = np.asarray(map(lambda x: 1 if x > 0 else 0,labels))
   ytrainP = labelsP
 
   #http://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html
-  lsvc = LinearSVC(C=0.01, penalty="l1", dual=False, verbose = 2)
+  lsvc = LinearSVC(C=lsvcC, penalty="l1", dual=False, verbose = 2)
   lsvc.fit(xtrain, ytrainP)
 
   xtrainP = lsvc.transform(xtrain)
-  xtestP =  lsvc.transform(xtest)
+  xtestP  = lsvc.transform(xtest)
 
   clf = lm.LogisticRegression(penalty='l2', dual=True, tol=0.0001,
-                             C=1.0, fit_intercept=True, intercept_scaling=1.0,
+                             C=logregC, fit_intercept=True, intercept_scaling=1.0,
                              class_weight=None, random_state=None)
   #http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
   clf2 = ens.GradientBoostingRegressor(loss='quantile', alpha=0.5,
@@ -114,17 +116,17 @@ def trainer(traindata, labels, testdata, regression_type):
   clf.fit(xtrainP,ytrainP)
   predsP = clf.predict(xtestP)
   #=============================================
-  nztrain = np.where(ytrainP > 0)[0]
-  nztest = np.where(predsP == 1)[0]
+  nztrain  = np.where(ytrainP > 0)[0]
+  nztest   = np.where(predsP == 1)[0]
 
   nztrain0 = np.where(ytrainP == 0)[0]
-  nztest0 = np.where(predsP == 0)[0]
+  nztest0  = np.where(predsP == 0)[0]
 
-  xtrainP = xtrain[nztrain]
-  xtestP = xtest[nztest]
+  xtrainP  = xtrain[nztrain]
+  xtestP   = xtest[nztest]
 
-  ytrain0 = ytrain[nztrain0]
-  ytrain1 = ytrain[nztrain]
+  ytrain0  = ytrain[nztrain0]
+  ytrain1  = ytrain[nztrain]
 
   #=Regression 2================================
   if regression_type=="logistic":
@@ -164,9 +166,15 @@ if __name__ == '__main__':
   parser.add_argument('test_file', metavar='test_file', type=str, help='test file path')
   parser.add_argument('output_file', metavar='output_file', type=str, help='output file path')
   parser.add_argument('regression_type', metavar='regression_type', type=str, choices=['logistic', 'quantile'])
+  parser.add_argument('--lsvcC', metavar='lsvcC', type=float)
+  parser.add_argument('--logregC', metavar='logregC', type=float)
   parser.add_argument('--cv', dest='cv_mode', help='use CV mode (no prediction on test data will be made)', action='store_true')
   parser.add_argument('--no-cv', dest='cv_mode', help='use CV mode (no prediction on test data will be made)', action='store_false')
   parser.set_defaults(cv_mode=False)
+  parser.set_defaults(lsvcC=0.01)
+  parser.set_defaults(logregC=1)
   args = parser.parse_args()
+
+  print args
 
   main(args)
