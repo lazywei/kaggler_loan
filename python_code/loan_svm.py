@@ -39,8 +39,10 @@ def main(args):
   if cv_mode:
     permuted_index = np.random.permutation(X.shape[0])
 
+    k_fold = 3
+
     mae = 0
-    for val_index in np.array_split(permuted_index, 3):
+    for val_index in np.array_split(permuted_index, k_fold):
       train_index = np.delete(permuted_index, val_index)
 
       train_data  = X[train_index,]
@@ -51,7 +53,7 @@ def main(args):
 
       _, pred_on_val = trainer(train_data, train_label, val_data, regression_type, lsvcC, logregC)
       mae = mae + mean_absolute_error(val_label, pred_on_val)
-    print "MAE:" + str(mae/5)
+    print "MAE:" + str(mae/k_fold)
   else:
     pred_on_train, pred_on_test = trainer(X, labels, X_test, regression_type, lsvcC, logregC)
     print "In sample MAE:" + str(mean_absolute_error(pred_on_train, labels))
